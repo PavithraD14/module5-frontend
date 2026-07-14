@@ -1,29 +1,33 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "../api/apiInstance";
 
 function AdminProducts() {
   const [products, setProducts] = useState([]);
-  const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("");
-  const [price, setPrice] = useState("");
-  const [stock, setStock] = useState("");
-  const [description, setDescription] = useState(""); 
 
-  const [editId, setEditId] = useState(null); 
+  const [formData, setFormData] = useState({
+    title: "",
+    category: "",
+    price: "",
+    stock: "",
+    description: "",
+  });
 
-  const BASE_URL = "http://localhost:8081/products";
+  const [editId, setEditId] = useState(null);
+
   const token = localStorage.getItem("token");
 
-  const config = {
-    headers: { Authorization: `Bearer ${token}` },
-  };
-//1.READ
+  // FETCH PRODUCTS
   const fetchProducts = async () => {
     try {
-      const response = await axios.get(BASE_URL, config);
+      const response = await api.get("/products", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
       setProducts(response.data);
-    } catch (error) {
-      console.error("Error fetching products:", error);
+    } catch (err) {
+      console.log(err);
     }
   };
 
@@ -31,129 +35,215 @@ function AdminProducts() {
     fetchProducts();
   }, []);
 
-  // 2. CREATE & UPDATE
-  const handleSubmit = async (e) => {
+  // HANDLE INPUT
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  // CREATE PRODUCT
+  const handleCreateProduct = async (e) => {
     e.preventDefault();
-    
-    const productData = { 
-      title, 
-      category, 
-      price: Number(price), 
-      stock: Number(stock),
-      description 
-    };
 
     try {
-      if (editId) {
-        // UPDATE (PUT)
-        await axios.put(`${BASE_URL}/${editId}`, productData, config);
-        alert("Product updated successfully!");
-        setEditId(null);
-      } else {
-        // CREATE 
-        await axios.post(`${BASE_URL}/create`, productData, config);
-        alert("Product added successfully!");
-      }
-      
-      
-      setTitle("");
-      setCategory("");
-      setPrice("");
-      setStock("");
-      setDescription("");
-      fetchProducts(); 
-    } catch (error) {
-      console.error("Error saving product:", error);
-      alert(`Error: ${error.response?.data?.message || "Failed to submit items"}`);
+      await api.post("/products/create", formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setFormData({
+        title: "",
+        category: "",
+        price: "",
+        stock: "",
+        description: "",
+      });
+
+      fetchProducts();
+    } catch (err) {
+      console.log(err);
     }
   };
 
+  // UPDATE PRODUCT
+  const handleUpdateProduct = async (e) => {
+    e.preventDefault();
 
-  const handleEdit = (product) => {
-    setEditId(product._id || product.id);
-    setTitle(product.title || product.name); 
-    setCategory(product.category);
-    setPrice(product.price);
-    setStock(product.stock);
-    setDescription(product.description || "");
+    try {
+      await api.put(`/products/${editId}`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      setEditId(null);
+
+      setFormData({
+        title: "",
+        category: "",
+        price: "",
+        stock: "",
+        description: "",
+      });
+
+      fetchProducts();
+    } catch (err) {
+      console.log(err);
+    }
   };
 
-const handleDelete = async (id) => {
-  try {
-    const token = localStorage.getItem("token");
+  // DELETE PRODUCT
+  const handleDeleteProduct = async (id) => {
+    try {
+      await api.delete(`/products/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    await axios.delete(`http://localhost:8081/products/${id}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+      fetchProducts();
+    } catch (err) {
+      console.log(err);
+    }
+  };
 
-    setProducts(products.filter((p) => p._id !== id));
+  // EDIT PRODUCT
+  const handleEditProduct = (product) => {
+    setEditId(product._id);
 
-    setTitle("");
-    setCategory("");
-    setPrice("");
-    setStock("");
-    setDescription("");
+    setFormData({
+  title: product.title,
+  category: product.category,
+  price: product.price,
+  stock: product.stock,
+  description: product.description,
+});
+  };
 
-    alert("Product deleted successfully!");
-  } catch (error) {
-    console.error("Delete Error:", error.response?.data || error.message);
-  }
-};
-  return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold text-center mb-8">E-commerce Product CRUD</h1>
+    return (
+    <div className="min-h-screen bg-gray-100 p-8">
+      <div className="max-w-7xl mx-auto">
 
-      {/* Form Panel Container */}
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md mb-8 grid grid-cols-2 gap-4">
-        <h2 className="text-xl font-semibold col-span-2">{editId ? "✏️ Edit Product Details" : "➕ Add New Catalog Product"}</h2>
-        
-        <input type="text" placeholder="Product Title (e.g., Laptop)" value={title} onChange={(e) => setTitle(e.target.value)} required className="border p-2 rounded" />
-        <input type="text" placeholder="Category (e.g., Electronics)" value={category} onChange={(e) => setCategory(e.target.value)} required className="border p-2 rounded" />
-        <input type="number" placeholder="Price (₹)" value={price} onChange={(e) => setPrice(e.target.value)} required className="border p-2 rounded" />
-        <input type="number" placeholder="Stock Units" value={stock} onChange={(e) => setStock(e.target.value)} required className="border p-2 rounded" />
-        <input type="text" placeholder="Description (Optional)" value={description} onChange={(e) => setDescription(e.target.value)} className="border p-2 rounded col-span-2" />
-        
-        <button type="submit" className="col-span-2 bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700">
-          {editId ? "Apply Update" : "Add to Live Storefront"}
-        </button>
-      </form>
+        {/* FORM */}
+        <div className="bg-white rounded-2xl shadow-md p-6 mb-8">
+          <h2 className="text-2xl font-bold mb-6">
+            {editId ? "Update Product" : "Add Product"}
+          </h2>
 
-      {/* Admin Inventory Table Panel Layout */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-gray-100 border-b">
-              <th className="p-4 font-semibold">Product Title</th>
-              <th className="p-4 font-semibold">Category</th>
-              <th className="p-4 font-semibold">Price</th>
-              <th className="p-4 font-semibold">Inventory Stock</th>
-              <th className="p-4 font-semibold text-center">Controls</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((product) => (
-              <tr key={product._id || product.id} className="border-b hover:bg-gray-50">
-                <td className="p-4 font-medium">{product.title}</td>
-                <td className="p-4 text-gray-600">{product.category}</td>
-                <td className="p-4">₹{product.price}</td>
-                <td className="p-4">{product.stock} units</td>
-                <td className="p-4 text-center space-x-2">
-                  <button onClick={() => handleEdit(product)} type="button" className="bg-amber-500 text-white px-3 py-1 rounded text-sm hover:bg-amber-600">
+          <form
+            onSubmit={editId ? handleUpdateProduct : handleCreateProduct}
+            className="space-y-4"
+          >
+            <input
+              type="text"
+              name="title"
+              placeholder="Product Title"
+              value={formData.title}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3"
+              required
+            />
+
+            <input
+              type="text"
+              name="category"
+              placeholder="Category"
+              value={formData.category}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3"
+              required
+            />
+
+            <input
+              type="number"
+              name="price"
+              placeholder="Price"
+              value={formData.price}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3"
+              required
+            />
+
+            <input
+              type="number"
+              name="stock"
+              placeholder="Stock"
+              value={formData.stock}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded-lg px-4 py-3"
+              required
+            />
+
+            <textarea
+              name="description"
+              placeholder="Description"
+              value={formData.description}
+              onChange={handleChange}
+              rows="4"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3"
+            />
+
+            <button
+              type="submit"
+              className="bg-black text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-800 transition"
+            >
+              {editId ? "Update Product" : "Add Product"}
+            </button>
+          </form>
+        </div>
+
+        {/* PRODUCT LIST */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {products.length > 0 ? (
+            products.map((product) => (
+              <div
+                key={product._id}
+                className="bg-white rounded-2xl shadow-md p-6"
+              >
+                <h3 className="text-xl font-bold mb-2">
+                  {product.title}
+                </h3>
+
+                <p className="text-gray-600 mb-2">
+                  <strong>Category:</strong> {product.category}
+                </p>
+
+                <p className="text-gray-600 mb-2">
+                  <strong>Price:</strong> ₹{product.price}
+                </p>
+
+                <p className="text-gray-600 mb-2">
+                  <strong>Stock:</strong> {product.stock}
+                </p>
+
+                <p className="text-gray-600 mb-4">
+                  {product.description}
+                </p>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleEditProduct(product)}
+                    className="flex-1 bg-yellow-400 text-black py-2 rounded-lg font-semibold"
+                  >
                     Edit
                   </button>
-                  <button onClick={() => handleDelete(product._id || product.id)} type="button" className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700">
+
+                  <button
+                    onClick={() => handleDeleteProduct(product._id)}
+                    className="flex-1 bg-red-500 text-white py-2 rounded-lg font-semibold"
+                  >
                     Delete
                   </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {products.length === 0 && (
-          <p className="text-center p-6 text-gray-500">No active storefront products found.</p>
-        )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <p>No products found.</p>
+          )}
+        </div>
       </div>
     </div>
   );
